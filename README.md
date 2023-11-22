@@ -4,6 +4,9 @@
 
 Projeto desenvolvido por Lucas Feijó (RM 99727) e Ana Beatriz (RM 97865). 🛠️
 
+# Link do vídeo
+https://www.youtube.com/watch?si=la0j1MRcJe4dUn_L&v=UfN9GjLvwPw&feature=youtu.be
+
 **Dificuldade na Estocagem de Medicamentos Sensíveis à Umidade:**
 
 A armazenagem de medicamentos sensíveis à umidade representa um grande desafio para os hospitais. A manutenção das condições ideais de umidade é crucial para preservar a eficácia e a segurança desses medicamentos. No entanto, a falta de sistemas automatizados de monitoramento dificulta o controle preciso e constante das condições de armazenamento. Funcionários hospitalares muitas vezes precisam realizar verificações manuais periódicas, o que pode ser suscetível a erros humanos e não garantir a detecção imediata de desvios nas condições ideais.
