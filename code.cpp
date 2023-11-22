@@ -1,50 +1,59 @@
-// Incluindo as bibliotecas necessárias
-#include <LiquidCrystal_I2C.h>
 #include <Wire.h>
-#include "ArduinoJson.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include "DHT.h"
 #include "EspMQTTClient.h"
-#include "DHTesp.h"
+#include "ArduinoJson.h"
 
-// Configuração do pino do sensor DHT22
-const int DHT_PIN = 15; // Pino ao qual o sensor DHT22 está conectado
-DHTesp dhtSensor; // Instância do sensor DHT22
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-// Configuração do LCD
-LiquidCrystal_I2C lcd(0x27, 16, 2); // Endereço do display, número de colunas e linhas
+#define LED_PIN 14
+#define SENSOR_PIN 27
+#define BUZZER_PIN 26
 
-// Configuração do MQTT
+#define DHT_PIN 27
+#define DHT_SENSOR_TYPE DHT22
+DHT dhtSensor(DHT_PIN, DHT_SENSOR_TYPE);
+
+const float LIMITE_UMIDADE_LED = 20.0;
+const float LIMITE_UMIDADE_BUZZER = 50.0;
+bool buzzerLigado = false;
+
 EspMQTTClient client{
-  "Wokwi-GUEST",   // SSID do WiFi
-  "",               // Senha do WiFi
-  "mqtt.tago.io",   // Endereço do servidor MQTT
-  "Default",        // Usuário
-  "70de94f2-1cfb-4f85-b94b-7dee0b6ef274", // Token do dispositivo
-  "esp",            // Nome do dispositivo
-  1883              // Porta de comunicação
+  "Wokwi-GUEST",  // SSID do WiFi
+  "",              // Senha do WiFi
+  "mqtt.tago.io",  // Endereço do servidor MQTT
+  "Default",       // Usuário
+  "73b9d3ad-30af-4221-8a70-fe4873727717",  // Token do device
+  "Device #1",           // Nome do device
+  1883             // Porta de comunicação
 };
 
 void setup() {
-  // Inicialização do Display LCD
-  lcd.init();
-  lcd.backlight();
-
-  // Inicialização do sensor DHT22
-  dhtSensor.setup(DHT_PIN, DHTesp::DHT22);
-
-  // Inicialização da comunicação serial
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
   Serial.begin(9600);
-  Serial.println("Conectando WiFi");
+  
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("failed to start SSD1306 OLED"));
+    while (1);
+  }
 
-  // Loop até conectar ao WiFi
+  dhtSensor.begin();
+  oled.setCursor(0, 0);
+
+  Serial.println("Conectando WiFi");
   while (!client.isWifiConnected()) {
     Serial.print('.');
     client.loop();
     delay(1000);
   }
   Serial.println("WiFi Conectado");
-  Serial.println("Conectando com Servidor MQTT");
 
-  // Loop até conectar ao servidor MQTT
+  Serial.println("Conectando com Servidor MQTT");
   while (!client.isMqttConnected()) {
     Serial.print('.');
     client.loop();
@@ -53,41 +62,59 @@ void setup() {
   Serial.println("MQTT Conectado");
 }
 
-// Callback da EspMQTTClient
-void onConnectionEstablished() {
-  // Opcional: ação quando a conexão é estabelecida
-}
-
+void onConnectionEstablished()
+{}
 char bufferJson[100];
 
 void loop() {
-  // Leitura de temperatura e umidade do sensor DHT22
-  TempAndHumidity data = dhtSensor.getTempAndHumidity();
+  int temp = dhtSensor.readTemperature();
+  int humidity = dhtSensor.readHumidity();
 
-  // Exibição no Serial Monitor
-  Serial.println("Temp: " + String(data.temperature, 2) + "°C");
-  Serial.println("Humidity: " + String(data.humidity, 1) + "%");
+  Serial.println("Temp: " + String(temp) + "°C");
+  Serial.println("Humidity: " + String(humidity) + "%");
   Serial.println("---");
 
-  // Exibição no LCD
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Temp: " + String(data.temperature, 2) + "C");
+  oled.clearDisplay();
 
-  lcd.setCursor(0, 1);
-  lcd.print("Humidity: " + String(data.humidity, 1) + "%");
+  oled.setTextSize(1);         // set text size
+  oled.setTextColor(WHITE);    // set text color
+  oled.setCursor(0, 10);       // set position to display
+  oled.println("Temp: " + String(temp) + "C"); // set text
 
-  // Aguarda por uma nova leitura do sensor (taxa de amostragem do DHT22 de ~0.5Hz)
-  delay(2000);
+  oled.setTextSize(1);         // set text size
+  oled.setTextColor(WHITE);    // set text color
+  oled.setCursor(0, 20);       // set position to display
+  oled.println("Humidity: " + String(humidity) + "%"); // set text
 
-  // Envia para o servidor MQTT
-  StaticJsonDocument<300> documentoJson;
-  documentoJson["temperature"] = data.temperature;
-  documentoJson["humidity"] = data.humidity;
-  char bufferJson[100];
-  serializeJson(documentoJson, bufferJson);
-  client.publish("topicoTDSPI", bufferJson);
-  delay(2000);
+  oled.display();
+
+  if (humidity > LIMITE_UMIDADE_BUZZER && !buzzerLigado) {
+    tone(BUZZER_PIN, 1000);  // turn on
+    buzzerLigado = true;
+  } else if (humidity <= LIMITE_UMIDADE_BUZZER && buzzerLigado) {
+    tone(BUZZER_PIN, 0);  // turn on
+    buzzerLigado = false;
+  }
+
+  if (humidity < LIMITE_UMIDADE_LED) {
+    digitalWrite(LED_PIN, HIGH);
+  } else {
+    digitalWrite(LED_PIN, LOW);
+  }
+
+  StaticJsonDocument<300> doc;
+  doc["variable"] = "Temperatura";
+  doc["value"] = temp;
+  serializeJson(doc, bufferJson);
+  client.publish("topicoEngSoft", bufferJson);
   client.loop();
-}
 
+  doc["variable"] = "Humidade";
+  doc["value"] = humidity;
+  serializeJson(doc, bufferJson);
+  client.publish("YOUR_TOPIC", bufferJson);
+  client.loop();
+
+  delay(2000);
+
+}
