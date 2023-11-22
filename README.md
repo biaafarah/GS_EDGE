@@ -52,7 +52,7 @@ Este projeto consiste na leitura de dados de um sensor DHT22 (umidade e temperat
 3. Os dados (umidade e temperatura) serão publicados em um tópico MQTT especificado no código para que possam ser consumidos ou processados por outros dispositivos ou aplicativos.
 
 ## Link do projeto
-https://wokwi.com/projects/382039485790694401
+https://wokwi.com/projects/382056510571273217
 
 ## Notas Adicionais
 
